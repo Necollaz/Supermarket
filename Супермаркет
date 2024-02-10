@@ -9,11 +9,11 @@ internal class Program
 
 public static class RandomProvider
 {
-    private static readonly Random _random = new Random();
+    private static readonly Random s_random = new Random();
 
     public static int GetRandomNumber(int minValue, int maxValue)
     {
-        return _random.Next(minValue, maxValue);
+        return s_random.Next(minValue, maxValue);
     }
 }
 
@@ -68,7 +68,7 @@ public class Client
         }
         else
         {
-            RemoveFromBasket();
+            RemoveRandomProductFromBasket();
             return false;
         }
     }
@@ -83,7 +83,7 @@ public class Client
         _shoppingBasket.Add(product);
     }
 
-    public void RemoveFromBasket()
+    public void RemoveRandomProductFromBasket()
     {
         if (_shoppingBasket.Count > 0)
         {
