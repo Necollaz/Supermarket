@@ -9,7 +9,12 @@ internal class Program
 
 public static class RandomProvider
 {
-    public static readonly Random Instance = new Random();
+    private static readonly Random _random = new Random();
+
+    public static int GetRandomNumber(int minValue, int maxValue)
+    {
+        return _random.Next(minValue, maxValue);
+    }
 }
 
 public class Product
@@ -40,12 +45,21 @@ public class Client
 
     public int Money { get; private set; }
 
-    public List<Product> GetShoppingBasket()
+    public bool TryGetProductFromBasket(int index, out Product product)
     {
-        return _shoppingBasket;
+        if(index >= 0 && index < _shoppingBasket.Count)
+        {
+            product = _shoppingBasket[index];
+            return true;
+        }
+        else
+        {
+            product = null;
+            return false;
+        }
     }
 
-    public bool PayForBasket(int sum)
+    public bool TryPayForBasket(int sum)
     {
         if(Money >= sum)
         {
@@ -59,6 +73,11 @@ public class Client
         }
     }
 
+    public int GetBasketCount()
+    {
+        return _shoppingBasket.Count;
+    }
+
     public void AddProductToBasket(Product product)
     {
         _shoppingBasket.Add(product);
@@ -68,14 +87,9 @@ public class Client
     {
         if (_shoppingBasket.Count > 0)
         {
-            int randomIndex = RandomProvider.Instance.Next(_shoppingBasket.Count);
+            int randomIndex = RandomProvider.GetRandomNumber(0, _shoppingBasket.Count);
             _shoppingBasket.RemoveAt(randomIndex);
         }
-    }
-
-    public void ClearBasket()
-    {
-        _shoppingBasket.Clear();
     }
 }
 
@@ -83,24 +97,32 @@ public class Checkout
 {
     public int ProcessAllClients(Queue<Client> clients, List<Product> products)
     {
-        int earnings = 0;
+        int totalEarnings = 0;
 
         while (clients.Count > 0)
         {
             Client client = clients.Dequeue();
-            FillBasketRandomProducts(client, products);
+            totalEarnings += ProcessClient(client, products);
+        }
 
-            int payment = ProcessPayment(client);
+        return totalEarnings;
+    }
 
-            if (payment > 0)
-            {
-                Console.WriteLine("Клиент оплатил продукты.");
-                earnings += payment;
-            }
-            else
-            {
-                Console.WriteLine("Клиент не смог оплатить продукты и уходит из магазина.");
-            }
+    private int ProcessClient(Client client, List<Product> products)
+    {
+        int earnings = 0;
+        FillBasketRandomProducts(client, products);
+
+        int payment = ProcessPayment(client);
+
+        if (payment > 0)
+        {
+            Console.WriteLine("Клиент оплатил продукты.");
+            earnings += payment;
+        }
+        else
+        {
+            Console.WriteLine("Клиент не смог оплатить продукты и уходит из магазина.");
         }
 
         return earnings;
@@ -110,10 +132,9 @@ public class Checkout
     {
         int sum = CalculateBasket(client);
 
-        if (client.PayForBasket(sum))
+        if (client.TryPayForBasket(sum))
         {
-            ShowReceipt(client, sum);
-            client.ClearBasket();
+            ShowReceipt(client);
             return sum;
         }
 
@@ -123,22 +144,41 @@ public class Checkout
     private int CalculateBasket(Client client)
     {
         int sum = 0;
+        int basketCount = client.GetBasketCount();
 
-        foreach (var product in client.GetShoppingBasket())
+        for (int i = 0; i < basketCount; i++)
         {
-            sum += product.Price;
+            if(client.TryGetProductFromBasket(i, out Product product))
+            {
+                sum += product.Price;
+            }
+            else
+            {
+                Console.WriteLine("Такого продукта нет.");
+            }
         }
 
         return sum;
     }
 
-    private void ShowReceipt(Client client, int sum)
+    private void ShowReceipt(Client client)
     {
         Console.WriteLine("----------- Чек клиента ------------ ");
 
-        foreach (var product in client.GetShoppingBasket())
+        int sum = 0;
+        int basketCount = client.GetBasketCount();
+
+        for (int i = 0; i < basketCount; i++)
         {
-            product.ShowInfo();
+            if(client.TryGetProductFromBasket(i, out Product product))
+            {
+                product.ShowInfo();
+                sum += product.Price;
+            }
+            else
+            {
+                Console.WriteLine("Такого продукта нет.");
+            }
         }
 
         Console.WriteLine("-------------------------------------");
@@ -150,11 +190,11 @@ public class Checkout
     {
         int minNumberProducts = 1;
         int maxNumberProducts = 10;
-        int productCount = RandomProvider.Instance.Next(minNumberProducts, maxNumberProducts + 1);
+        int productCount = RandomProvider.GetRandomNumber(minNumberProducts, maxNumberProducts + 1);
 
         for (int i = 0; i < productCount; i++)
         {
-            Product product = products[RandomProvider.Instance.Next(products.Count)];
+            Product product = products[RandomProvider.GetRandomNumber(0, products.Count)];
             client.AddProductToBasket(product);
         }
     }
@@ -181,6 +221,7 @@ public class Supermarket
 
     public void ShowMenu()
     {
+        string commandExit = "exit";
         int dayToSimulate;
         bool isProgramWork = true;
 
@@ -189,7 +230,7 @@ public class Supermarket
             Console.WriteLine("Введите количество рабочих дней или 'exit' для выхода: ");
             string userInput = Console.ReadLine();
 
-            if (userInput.ToLower() == "exit")
+            if (userInput.ToLower() == commandExit)
             {
                 isProgramWork = false;
                 continue;
@@ -202,7 +243,7 @@ public class Supermarket
                 for (int i = 0; i < dayToSimulate; i++)
                 {
                     Console.WriteLine($"День - {i + 1}: ");
-                    StartDay();
+                    RunWorkdayOperations();
                 }
             }
             else
@@ -215,7 +256,7 @@ public class Supermarket
         Console.ReadKey();
     } 
 
-    private void StartDay()
+    private void RunWorkdayOperations()
     {
         GenerateClients(1, 10);
 
@@ -227,13 +268,13 @@ public class Supermarket
 
     private void GenerateClients(int minClients, int maxClients)
     {
-        int clientCount = RandomProvider.Instance.Next(minClients, maxClients + 1);
+        int clientCount = RandomProvider.GetRandomNumber(minClients, maxClients + 1);
         int minQuantityMoneyCLient = 20;
         int maxQuantityMoneyCLient = 200;
 
         for (int i = 0; i < clientCount; i++)
         {
-            int money = RandomProvider.Instance.Next(minQuantityMoneyCLient, maxQuantityMoneyCLient + 1);
+            int money = RandomProvider.GetRandomNumber(minQuantityMoneyCLient, maxQuantityMoneyCLient + 1);
             Client client = new Client(money);
             _clients.Enqueue(client);
         }
